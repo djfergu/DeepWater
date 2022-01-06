@@ -2,6 +2,7 @@ import random
 import threading 
 #import asyncio
 import datetime
+import os
 
 import discord
 from discord.ext import commands
@@ -236,6 +237,9 @@ async def radar(ctx):
 
 @bot.command()
 async def ride(ctx):
-    await ctx.message.channel.send("You are such a fag")
+    await ctx.message.channel.send("You are such a joker")
 
-bot.run('OTI0MDc3NzY5Njk5MjM3ODg5.YcZUfA.7ccrP_RU2r1IC35Je26Daf6GVNI')
+
+if "DISCORD_BOT_TOKEN" in os.environ:
+    token = os.environ["DISCORD_BOT_TOKEN"]
+    bot.run(token)
