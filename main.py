@@ -1,13 +1,10 @@
 import random
-import threading 
-import math
 import datetime
 import os
 
 import discord
 from discord.ext import commands
 from discord.ext import tasks
-from discord.ext.commands.context import P
 
 ESCAPE_CHAR= '!'
 
@@ -31,32 +28,36 @@ class Character:
         self.gold=gold
         self.location = 4
         self.inventory = []
+        self.xp = 0
+        self.left_hand = None
+        self.right_hand = None
+
 class Submarine:
     def __init__(self):
         self.hull = 100
         self.fuel = 100
         self.weapons = 100
         self.position = (0,0)
-        self.layout = [Location(0,"Upper Aft Cargo Room",[1]), Location(1,"Upper Mid Room",[0,2,4]), Location(2, "Sonar Room",[1]),
-                       Location(3,"Engine Room",[4]), Location(4,"Reactor Room",[1,3,5,7]), Location(5,"Command and Control Room",[4]),
-                       Location(6,"Aft Ballast Room",[7]), Location(7,"Airlock Room",[4,6,8]), Location(8, "Fore Ballast Room",[7])]
-        """ Submarine Layout
+        self.rooms = [Location(0,"Upper Aft Cargo Room",[1]), Location(1,"Upper Mid Room",[0,2,4]), Location(2, "Sonar Room",[1]),
+                       Location(3,"Engine Room",[4]),          Location(4,"Reactor Room",[1,3,5,7]), Location(5,"Command and Control Room",[4]),
+                       Location(6,"Aft Ballast Room",[7]),     Location(7,"Airlock Room",[4,6,8]),   Location(8, "Fore Ballast Room",[7])]
+        """ Submarine rooms
         0 - 1 - 2
             |
         3 - 4 - 5
             |
         6 - 7 - 8
         """
-        self.layout[0].cabinet.append(Item(0, "Screw Driver", 100))
-        self.layout[0].cabinet.append(Item(1, "Wrench", 100))
-        self.layout[0].cabinet.append(Item(2, "Plunger", 100))
-        self.layout[0].cabinet.append(Item(3, "Welder", 100))
-        self.layout[0].cabinet.append(Item(4, "Logic Analyzer", 100))
-        self.layout[0].cabinet.append(Item(5, "Sedative", 100))
-        self.layout[0].cabinet.append(Item(6, "Channel Locks", 100))
+        self.rooms[0].cabinet.append(Item(0, "Screw Driver", 100))
+        self.rooms[0].cabinet.append(Item(1, "Wrench", 100))
+        self.rooms[0].cabinet.append(Item(2, "Plunger", 100))
+        self.rooms[0].cabinet.append(Item(3, "Welder", 100))
+        self.rooms[0].cabinet.append(Item(4, "Logic Analyzer", 100))
+        self.rooms[0].cabinet.append(Item(5, "Sedative", 100))
+        self.rooms[0].cabinet.append(Item(6, "Channel Locks", 100))
 
 class Mission:
-    def __init__(self, id, duration, description, reason, location, tool):
+    def __init__(self, location, tool, id, duration, description, reason):
         self.id = id
         self.description = description
         self.reason = reason
@@ -74,15 +75,13 @@ class World:
         self.characters = {}
         self.mission_id = 0
         self.bot = None
-        self.missionboard = [Mission(0, self.MISSION_DURATION, "Engine Failure", "something got lodged in the intake",3,1),
-                             Mission(1, self.MISSION_DURATION, "Hull Damage", "we accidently brushed against a reef",-1,3),
-                             Mission(2, self.MISSION_DURATION, "Electrical Malfunction", "ghosts are causing a ruckus",4,0),
-                             Mission(3, self.MISSION_DURATION, "Plumbing Disaster", "someone took a big dump and clogged the pipes",1, 6),
-                             Mission(4, self.MISSION_DURATION, "Navigation Error", "there was an accidental conversion to metric system",5, 4),
-                             Mission(5, self.MISSION_DURATION, "Stray Neutrino", "a stray neutrino wrecked some electronics",5,4),
-                             Mission(6, self.MISSION_DURATION, "Crew Altercation", "some crew got into an argument, and started boxing",4, 5)]
-        
-
+        self.missionboard = [Mission(0, 3, 1, self.MISSION_DURATION, "Engine Failure", "something got lodged in the intake"),
+                             Mission(1,-1, 3, self.MISSION_DURATION, "Hull Damage", "we accidently brushed against a reef"),
+                             Mission(2, 4, 0, self.MISSION_DURATION, "Electrical Malfunction", "ghosts are causing a ruckus"),
+                             Mission(3, 1, 6, self.MISSION_DURATION, "Plumbing Disaster", "someone took a big dump and clogged the pipes"),
+                             Mission(4, 5, 4, self.MISSION_DURATION, "Navigation Error", "there was an accidental conversion to metric system"),
+                             Mission(5, 5, 4, self.MISSION_DURATION, "Stray Neutrino", "a stray neutrino wrecked some electronics"),
+                             Mission(6, 4, 5, self.MISSION_DURATION, "Crew Altercation", "some crew got into an argument, and started throwing punches")]
 
     def bet(self, src, amt):
         str_result = ""
@@ -278,29 +277,34 @@ async def stats(ctx):
     mychar = ctx.bot.submarinerContext.world.characters[myname]
     health =mychar.health
     gold = mychar.gold
-    description = ctx.bot.submarinerContext.world.submarine.layout[mychar.location].description
+    description = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location].description
+    await ctx.message.channel.send(f"```Name: {myname}\nHealth: {health}\nLocation: {description}\nGold: {gold}```")
+
+@bot.command()
+async def inventory(ctx):
+    myname = ctx.message.author.name.lower()
+    mychar = ctx.bot.submarinerContext.world.characters[myname]
+
     inventory =""
-    for i in mychar.inventory:
-        inventory += f"{i.name}\n"
-    # if inventory != "":
-    #     inventory = f"```{inventory}```"
-    await ctx.message.channel.send(f"```Name: {myname}\nHealth: {health}\nLocation: {description}\nGold: {gold}\nInventory: {inventory}```")
+    for i in range(0, len(mychar.inventory)):
+        inventory += f"\t{i+1}) {mychar.inventory[i].name}\n"
+    if inventory != "":
+        await ctx.message.channel.send(f"```Inventory:\n{inventory}```")
+    else:
+        await ctx.message.channel.send(f"```Inventory:\n Empty```")
 
 @bot.command()
 async def look(ctx):
     myname = ctx.message.author.name.lower()
     mychar = ctx.bot.submarinerContext.world.characters[myname]
-    myloc = ctx.bot.submarinerContext.world.submarine.layout[mychar.location]
-
-
+    myloc = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location]
     exits = ""
     for e in myloc.exits:
-        exits += f"\t{ctx.bot.submarinerContext.world.submarine.layout[e].id}) {ctx.bot.submarinerContext.world.submarine.layout[e].description}\n"
+        exits += f"\t{ctx.bot.submarinerContext.world.submarine.rooms[e].id}) {ctx.bot.submarinerContext.world.submarine.rooms[e].description}\n"
     str_result = f"You are in the {myloc.description}\n"
     if len(myloc.cabinet) > 0:
         str_result += f"There is a cabinet here\n"
-    str_result += f"You can move to:\n{exits}"
-    
+    str_result += f"You can move to:\n{exits}"    
     await ctx.message.channel.send(str_result)
 
 @bot.command()
@@ -309,12 +313,13 @@ async def move(ctx):
     if len(pieces) == 2:    
         myname = ctx.message.author.name.lower()
         mychar = ctx.bot.submarinerContext.world.characters[myname] #load
-        myloc = ctx.bot.submarinerContext.world.submarine.layout[mychar.location]
+        myloc = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location]
         if int(pieces[1]) in myloc.exits:
             mychar.location = int(pieces[1])
             ctx.bot.submarinerContext.world.characters[myname] = mychar #store
-            destination_room_description = ctx.bot.submarinerContext.world.submarine.layout[mychar.location].description
+            destination_room_description = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location].description
             await ctx.message.channel.send(f"```You moved to the {destination_room_description}```")
+            await look(ctx)
 
 @bot.command()
 async def cabinet(ctx):
@@ -322,7 +327,7 @@ async def cabinet(ctx):
     mychar = ctx.bot.submarinerContext.world.characters[myname] #load
     str_cabinet = ""
     item_index = 1
-    for i in ctx.bot.submarinerContext.world.submarine.layout[mychar.location].cabinet:
+    for i in ctx.bot.submarinerContext.world.submarine.rooms[mychar.location].cabinet:
         str_cabinet += f"{item_index}) {i.name}\n"
         item_index += 1
     if str_cabinet != "":
@@ -331,15 +336,59 @@ async def cabinet(ctx):
     else:
         await ctx.message.channel.send(f"```There isn't anything in the cabinet```")
 
+def get_item_from_cabinet(room, item_index):
+    if len(room.cabinet) >= item_index:
+        if item_index >= 0:
+            item = room.cabinet[item_index]
+            return item
+    return None
+
 @bot.command()
 async def get(ctx):
     myname = ctx.message.author.name.lower()
-    mychar = ctx.bot.submarinerContext.world.characters[myname] #load
-    myloc = ctx.bot.submarinerContext.world.submarine.layout[mychar.location]
+    myworld = ctx.bot.submarinerContext.world
+    mysub = myworld.submarine
+    mychar = myworld.characters[myname] #load
+    myroom = myworld.submarine.rooms[mychar.location]
     pieces = ctx.message.content.split(' ')
-    if len(pieces) == 2:  
-        item = myloc.cabinet[int(pieces[1])]
-        mychar.inventory.append(item)
+    if len(pieces) == 2:
+        selected_index = int(pieces[1]) - 1
+        item = get_item_from_cabinet(myroom, selected_index)
+        if item != None:
+            mychar.inventory.append(item)
+            mysub.rooms[mychar.location].cabinet.remove(item)
+            await ctx.message.channel.send(f"```You grabbed a {item.name}```")
+        else:
+            await ctx.message.channel.send(f"```Get what?```")
+    else:
+        await ctx.message.channel.send(f"```Get what?```")
+
+def get_item_from_inventory(character, item_index):
+    if len(character.inventory) >= item_index:
+        if item_index >= 0:
+            item = character.inventory[item_index]
+            return item
+    return None
+
+@bot.command()
+async def put(ctx):
+    myname = ctx.message.author.name.lower()
+    myworld = ctx.bot.submarinerContext.world
+    mysub = myworld.submarine
+    mychar = myworld.characters[myname] #load
+    myroom = myworld.submarine.rooms[mychar.location]
+    pieces = ctx.message.content.split(' ')
+    if len(pieces) == 2:
+        selected_index = int(pieces[1]) - 1
+        item = get_item_from_inventory(mychar, selected_index)
+        if item != None:
+            ctx.bot.submarinerContext.world.submarine.rooms[mychar.location].cabinet.append(item)
+            mychar.inventory.remove(item)
+            await ctx.message.channel.send(f"```You put away the {item.name}```")
+        else:
+            await ctx.message.channel.send(f"```Put what?```")
+    else:
+        await ctx.message.channel.send(f"```Put what?```")
 
 @bot.command()
 async def equip(ctx):
