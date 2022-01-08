@@ -13,6 +13,16 @@ class Item:
         self.id = id
         self.name = name
         self.cost = cost
+
+class Container:
+    def __init__(self):
+        self.items = []
+    def to_string(self):
+        inv = "Inventory:\n"
+        idx = 1
+        for i in self.items:
+            inv += f"\t{idx}) {i.name}\n"
+        return inv
 class Location:
     def __init__(self, id , description, exits):
         self.id = id
@@ -29,8 +39,7 @@ class Character:
         self.location = 4
         self.inventory = []
         self.xp = 0
-        self.left_hand = None
-        self.right_hand = None
+        self.equipped_item = None
 
 class Submarine:
     def __init__(self):
@@ -48,13 +57,12 @@ class Submarine:
             |
         6 - 7 - 8
         """
-        self.rooms[0].cabinet.append(Item(0, "Screw Driver", 100))
-        self.rooms[0].cabinet.append(Item(1, "Wrench", 100))
-        self.rooms[0].cabinet.append(Item(2, "Plunger", 100))
-        self.rooms[0].cabinet.append(Item(3, "Welder", 100))
-        self.rooms[0].cabinet.append(Item(4, "Logic Analyzer", 100))
-        self.rooms[0].cabinet.append(Item(5, "Sedative", 100))
-        self.rooms[0].cabinet.append(Item(6, "Channel Locks", 100))
+        self.rooms[4].cabinet.append(Item(0, "Screw Driver", 100))
+        self.rooms[4].cabinet.append(Item(1, "Wrench", 100))
+        self.rooms[4].cabinet.append(Item(2, "Plunger", 100))
+        self.rooms[4].cabinet.append(Item(3, "Welder", 100))
+        self.rooms[4].cabinet.append(Item(4, "Logic Analyzer", 100))
+        self.rooms[4].cabinet.append(Item(5, "Sedative", 100))
 
 class Mission:
     def __init__(self, location, tool, id, duration, description, reason):
@@ -76,12 +84,12 @@ class World:
         self.mission_id = 0
         self.bot = None
         self.missionboard = [Mission(0, 3, 1, self.MISSION_DURATION, "Engine Failure", "something got lodged in the intake"),
-                             Mission(1,-1, 3, self.MISSION_DURATION, "Hull Damage", "we accidently brushed against a reef"),
-                             Mission(2, 4, 0, self.MISSION_DURATION, "Electrical Malfunction", "ghosts are causing a ruckus"),
-                             Mission(3, 1, 6, self.MISSION_DURATION, "Plumbing Disaster", "someone took a big dump and clogged the pipes"),
-                             Mission(4, 5, 4, self.MISSION_DURATION, "Navigation Error", "there was an accidental conversion to metric system"),
-                             Mission(5, 5, 4, self.MISSION_DURATION, "Stray Neutrino", "a stray neutrino wrecked some electronics"),
-                             Mission(6, 4, 5, self.MISSION_DURATION, "Crew Altercation", "some crew got into an argument, and started throwing punches")]
+                             Mission(1, 3, 3, self.MISSION_DURATION, "Hull Damage", "we accidently brushed against a reef"),
+                             Mission(2, 1, 0, self.MISSION_DURATION, "Electrical Malfunction", "ghosts are causing a ruckus"),
+                             Mission(3, 2, 6, self.MISSION_DURATION, "Plumbing Disaster", "someone took a big dump and clogged the pipes"),
+                             Mission(4, 4, 4, self.MISSION_DURATION, "Navigation Error", "there was an accidental conversion to metric system"),
+                             Mission(5, 4, 4, self.MISSION_DURATION, "Stray Neutrino", "a stray neutrino wrecked some electronics"),
+                             Mission(6, 5, 5, self.MISSION_DURATION, "Crew Altercation", "some crew got into an argument, and started throwing punches")]
 
     def bet(self, src, amt):
         str_result = ""
@@ -126,7 +134,7 @@ class SubmarinerBot(commands.Bot):
 
         self.submarinerContext = SubmarinerContext()        
         self.submarine_check.start()
-        self.character_check.start()
+        # self.character_check.start()
 
 
     @tasks.loop(seconds=10)
@@ -150,15 +158,12 @@ class SubmarinerBot(commands.Bot):
                     self.submarinerContext.world.missionboard = mission_board # store 1
                     num_valid = num_valid + 1                        
                     channel = self.get_channel(925887494128537692)  # channel ID goes here
-                    await channel.send(f"```Uh oh, {mission.reason}.\nPlease run !diagnostics, and !repair the problem.```")                        
-                    #break
+                    await channel.send(f"```Uh oh, {mission.reason}.\nPlease run !diagnostics, and !repair the problem.```")
                 else:
                     print("already taken")
-                #await asyncio.sleep(30)  # task runs every 30 seconds
-    
+
     @tasks.loop(seconds=1)
     async def character_check(self):
-        #pass
         if not self.is_closed():
             for m in range(0,len(self.submarinerContext.world.missionboard)):
                 mission = self.submarinerContext.world.missionboard[m] #load
@@ -176,9 +181,9 @@ class SubmarinerBot(commands.Bot):
     async def before_my_task(self):
         await self.wait_until_ready()  # wait until the bot logs in
 
-    @character_check.before_loop
-    async def before_my_task(self):
-        await self.wait_until_ready()  # wait until the bot logs in+
+    # @character_check.before_loop
+    # async def before_my_task(self):
+    #     await self.wait_until_ready()  # wait until the bot logs in+
 
 bot = SubmarinerBot(command_prefix=ESCAPE_CHAR)
 
@@ -188,21 +193,34 @@ async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("------")
 
+
 @bot.command()
 async def create(ctx):
     myname = ctx.message.author.name.lower()
-    ctx.bot.submarinerContext.world.characters[myname] = Character(myname, 1000)
-    await ctx.message.channel.send(f"`{myname} is born.`")
+    # ctx.bot.submarinerContext.world.characters[myname] = Character(myname, 1000)
+    await ctx.message.channel.send(f"```This command is deprecated. It is no longer necessary, because you will automatically get created if you are not already.```")
+
+def create_character_if_not_exists(characters, name):
+    print (f"Create {name}?")
+    for n in characters:
+        if n == name:
+            print("Character Exists")
+            return True
+    characters[name] = Character(name, 1000)
+    print("CREATED Character")
+    return False
 
 @bot.command()
 async def money(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     gold = ctx.bot.submarinerContext.world.characters[myname].gold
-    await ctx.message.channel.send(f"{myname} has {str(gold)} gold.`")    
+    await ctx.message.channel.send(f"```{myname} has {str(gold)} gold.```")    
 
 @bot.command()
 async def give(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     pieces = ctx.message.content.split(' ')
     if len(pieces) == 3:                    
         str_result = ctx.bot.submarinerContext.world.give(myname, str(pieces[2]), int(pieces[1]))
@@ -213,6 +231,7 @@ async def give(ctx):
 @bot.command()
 async def bet(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     pieces = ctx.message.content.split(' ')
     if len(pieces) == 2:
         str_result = ctx.bot.submarinerContext.world.bet(myname, int(pieces[1]))
@@ -239,6 +258,8 @@ async def diagnostics(ctx):
 @bot.command()
 async def repair(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
+    mychar = ctx.bot.submarinerContext.world.characters[myname]
     pieces = ctx.message.content.split(' ')
     if len(pieces) == 2:
         job_id = int(pieces[1])
@@ -253,14 +274,16 @@ async def repair(ctx):
                     break
                 if job_id == job_index+1:
                     #this is the selected mission
-                    mission.assigned_character = myname
-                    mission.start_time = datetime.datetime.now()
-                    ctx.bot.submarinerContext.world.missionboard[m] = mission # store
-                    await ctx.message.channel.send(f"`You are now assigned to '{mission.description}'`")
-                    break
+                    if mission.tool == mychar.equipped_item and mission.tool != -1:
+                        mission.assigned_character = myname
+                        mission.start_time = datetime.datetime.now()
+                        ctx.bot.submarinerContext.world.missionboard[m] = mission # store
+                        await ctx.message.channel.send(f"`You are now assigned to '{mission.description}'`")
+                        break
+                    else:
+                        await ctx.message.channel.send(f"```You do not have a {mission.tool} equipped.```")
+                        break
                 job_index = job_index + 1
-        #else:
-        #    await ctx.message.channel.send("You are already assigned to a job.")
     else:
         await ctx.message.channel.send(f"'{myname}, what did you say?'")
 @bot.command()
@@ -274,6 +297,7 @@ async def ride(ctx):
 @bot.command()
 async def stats(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     mychar = ctx.bot.submarinerContext.world.characters[myname]
     health =mychar.health
     gold = mychar.gold
@@ -283,6 +307,7 @@ async def stats(ctx):
 @bot.command()
 async def inventory(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     mychar = ctx.bot.submarinerContext.world.characters[myname]
 
     inventory =""
@@ -293,9 +318,17 @@ async def inventory(ctx):
     else:
         await ctx.message.channel.send(f"```Inventory:\n Empty```")
 
+def get_my_info(ctx):
+    myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
+    mychar = ctx.bot.submarinerContext.world.characters[myname]
+    myloc = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location]
+    return (myname, mychar, myloc)
+
 @bot.command()
 async def look(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     mychar = ctx.bot.submarinerContext.world.characters[myname]
     myloc = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location]
     exits = ""
@@ -304,16 +337,18 @@ async def look(ctx):
     str_result = f"You are in the {myloc.description}\n"
     if len(myloc.cabinet) > 0:
         str_result += f"There is a cabinet here\n"
-    str_result += f"You can move to:\n{exits}"    
+    str_result += f"You can move to:\n{exits}"   
+    str_result = f"```{str_result}```" 
     await ctx.message.channel.send(str_result)
 
 @bot.command()
 async def move(ctx):
+    myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
+    mychar = ctx.bot.submarinerContext.world.characters[myname] #load
+    myloc = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location]
     pieces = ctx.message.content.split(' ')
     if len(pieces) == 2:    
-        myname = ctx.message.author.name.lower()
-        mychar = ctx.bot.submarinerContext.world.characters[myname] #load
-        myloc = ctx.bot.submarinerContext.world.submarine.rooms[mychar.location]
         if int(pieces[1]) in myloc.exits:
             mychar.location = int(pieces[1])
             ctx.bot.submarinerContext.world.characters[myname] = mychar #store
@@ -324,6 +359,7 @@ async def move(ctx):
 @bot.command()
 async def cabinet(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     mychar = ctx.bot.submarinerContext.world.characters[myname] #load
     str_cabinet = ""
     item_index = 1
@@ -346,6 +382,7 @@ def get_item_from_cabinet(room, item_index):
 @bot.command()
 async def get(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     myworld = ctx.bot.submarinerContext.world
     mysub = myworld.submarine
     mychar = myworld.characters[myname] #load
@@ -373,6 +410,7 @@ def get_item_from_inventory(character, item_index):
 @bot.command()
 async def put(ctx):
     myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
     myworld = ctx.bot.submarinerContext.world
     mysub = myworld.submarine
     mychar = myworld.characters[myname] #load
@@ -392,7 +430,35 @@ async def put(ctx):
 
 @bot.command()
 async def equip(ctx):
-    pass
+    myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
+    myworld = ctx.bot.submarinerContext.world
+    mysub = myworld.submarine
+    mychar = myworld.characters[myname] #load
+    pieces = ctx.message.content.split(' ')
+    if len(pieces) == 2:
+        selected_index = int(pieces[1]) - 1
+        item = get_item_from_inventory(mychar, selected_index)
+        mychar.inventory.remove(item)
+        if item != None:
+            mychar.equipped_item = item
+            await ctx.message.channel.send(f"```You equipped a {item.name}```")
+    elif len(pieces) == 1:
+        await ctx.message.channel.send(f"```You have a {mychar.equipped_item} equipped```")
+
+@bot.command()
+async def unequip(ctx):
+    myname = ctx.message.author.name.lower()
+    create_character_if_not_exists(ctx.bot.submarinerContext.world.characters, myname)
+    myworld = ctx.bot.submarinerContext.world
+    mysub = myworld.submarine
+    mychar = myworld.characters[myname] #load
+    item = mychar.equipped_item
+    mychar.equipped_item = None
+    if item != None:
+        mychar.inventory.append(item)
+        await ctx.message.channel.send(f"```You unequipped a {item.name}```")
+
 
 if "DISCORD_BOT_TOKEN" in os.environ:
     token = os.environ["DISCORD_BOT_TOKEN"]
